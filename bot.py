@@ -29,7 +29,7 @@ ALERTS = [
     "must_include": [],
     "must_not_include": [],
     "size_filter": [],   # sizes already encoded in URL
-    "avg_resale_price": null,
+    "avg_resale_price": none,
     "fees_estimate": 0.0,
     "min_profit": 0.0,
     "enabled": True,
@@ -432,5 +432,6 @@ if __name__ == "__main__":
 
     # Start the main Vinted scanner loop
     main_loop()
+
 
 
