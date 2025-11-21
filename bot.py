@@ -150,9 +150,8 @@ def fetch_items(search_url: str):
     soup = BeautifulSoup(resp.text, "html.parser")
 
     # These selectors may need tweaking if Vinted changes layout
-    cards = soup.select(
-        "div.feed-grid__item, div.new-item-box, div.item-box, div.ItemBox_root__"
-    )
+    cards = soup.select("div.lc-card, div.ItemBox-root, div.item-box, div.feed__item")
+
 
     items = []
     for card in cards:
@@ -432,6 +431,7 @@ if __name__ == "__main__":
 
     # Start the main Vinted scanner loop
     main_loop()
+
 
 
 
