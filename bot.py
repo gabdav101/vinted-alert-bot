@@ -335,7 +335,7 @@ TEMPLATE = """
         <th>Fees</th>
         <th>Min Profit</th>
       </tr>
-      {% for i, alert in enumerate(alerts) %}
+      {% for item in items %}
       <tr>
         <td class="enabled">
           <input type="checkbox" name="enabled_{{i}}" value="1" {% if alert.get('enabled', True) %}checked{% endif %}>
@@ -432,4 +432,5 @@ if __name__ == "__main__":
 
     # Start the main Vinted scanner loop
     main_loop()
+
 
