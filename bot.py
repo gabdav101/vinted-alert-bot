@@ -21,6 +21,20 @@ ALERTS = [
         "min_profit": 5,                 # only alert if est profit >= this
         "enabled": True,
     },
+    {
+    "name": "trainers_under_£5",
+    "search_url": "https://www.vinted.co.uk/catalog?search_text=trainers&price_to=5.0&currency=GBP&size_ids[]=60&size_ids[]=1200&size_ids[]=782&size_ids[]=783&size_ids[]=784&size_ids[]=785&size_ids[]=786&size_ids[]=787&size_ids[]=788&size_ids[]=789&size_ids[]=790&size_ids[]=791&brand_ids[]=53&brand_ids[]=14&brand_ids[]=139&brand_ids[]=1775&brand_ids[]=1195&brand_ids[]=331974&brand_ids[]=44&brand_ids[]=2703&brand_ids[]=77512&brand_ids[]=11445&search_id=25547044964&order=newest_first",
+    "webhook_url": "https://discord.com/api/webhooks/1441391005667426435/4wCoH0aLtB7l8b03McbSiCsmt2G1-i05LyhnoIxRyAaVkobbIu0bhrg2W_iDVb4Xf1Db",
+    "max_price": 5.0,
+    "must_include": [],
+    "must_not_include": [],
+    "size_filter": [],   # sizes already encoded in URL
+    "avg_resale_price": null,
+    "fees_estimate": 0.0,
+    "min_profit": 0.0,
+    "enabled": True,
+},
+
 ]
 
 CHECK_DELAY_SECONDS = 5  # time between full scan cycles
@@ -418,3 +432,4 @@ if __name__ == "__main__":
 
     # Start the main Vinted scanner loop
     main_loop()
+
