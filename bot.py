@@ -1,6 +1,7 @@
 import time
 import threading
 import requests
+import os
 from bs4 import BeautifulSoup
 from flask import Flask, request, redirect, render_template_string
 
@@ -10,31 +11,30 @@ from flask import Flask, request, redirect, render_template_string
 ALERTS = [
     {
         "name": "ralph_under_5",
-    	"search_url": "https://www.vinted.co.uk/catalog?search_text=jumper&currency=GBP&search_id=28721414278&order=newest_first&page=1&time=1763712799&search_by_image_uuid=&size_ids[]=207&size_ids[]=208&brand_ids[]=88",
+        "search_url": "https://www.vinted.co.uk/catalog?search_text=jumper&currency=GBP&search_id=28721414278&order=newest_first&page=1&time=1763712799&search_by_image_uuid=&size_ids[]=207&size_ids[]=208&brand_ids[]=88",
         "webhook_url": "https://discord.com/api/webhooks/1441120567842570342/ySapzRut6DFaJ8R1bUPE7i1oJ49C9VyG3y2a17xACWi8pqUm_55loJNsAiZzVPYKDehx",
         "max_price": 10.0,                  # float or None
         "must_include": [],                 # list of keywords or []
         "must_not_include": ["replica", "fake", "inspired"],  # list of banned words
         "size_filter": ["S", "M", "L", "XL"],                  # list of sizes or [] for any
         "avg_resale_price": 10.0,           # for profit estimation
-        "fees_estimate": 10.0,               # for profit estimation
-        "min_profit": 5,                 # only alert if est profit >= this
+        "fees_estimate": 10.0,              # for profit estimation
+        "min_profit": 5.0,                  # only alert if est profit >= this
         "enabled": True,
     },
     {
-    "name": "trainers_under_£5",
-    "search_url": "https://www.vinted.co.uk/catalog?search_text=trainers&price_to=5.0&currency=GBP&size_ids[]=60&size_ids[]=1200&size_ids[]=782&size_ids[]=783&size_ids[]=784&size_ids[]=785&size_ids[]=786&size_ids[]=787&size_ids[]=788&size_ids[]=789&size_ids[]=790&size_ids[]=791&brand_ids[]=53&brand_ids[]=14&brand_ids[]=139&brand_ids[]=1775&brand_ids[]=1195&brand_ids[]=331974&brand_ids[]=44&brand_ids[]=2703&brand_ids[]=77512&brand_ids[]=11445&search_id=25547044964&order=newest_first",
-    "webhook_url": "https://discord.com/api/webhooks/1441391005667426435/4wCoH0aLtB7l8b03McbSiCsmt2G1-i05LyhnoIxRyAaVkobbIu0bhrg2W_iDVb4Xf1Db",
-    "max_price": 5.0,
-    "must_include": [],
-    "must_not_include": [],
-    "size_filter": [],   # sizes already encoded in URL
-    "avg_resale_price": 0.0,
-    "fees_estimate": 0.0,
-    "min_profit": 0.0,
-    "enabled": True,
-},
-
+        "name": "trainers_under_£5",
+        "search_url": "https://www.vinted.co.uk/catalog?search_text=trainers&price_to=5.0&currency=GBP&size_ids[]=60&size_ids[]=1200&size_ids[]=782&size_ids[]=783&size_ids[]=784&size_ids[]=785&size_ids[]=786&size_ids[]=787&size_ids[]=788&size_ids[]=789&size_ids[]=790&size_ids[]=791&brand_ids[]=53&brand_ids[]=14&brand_ids[]=139&brand_ids[]=1775&brand_ids[]=1195&brand_ids[]=331974&brand_ids[]=44&brand_ids[]=2703&brand_ids[]=77512&brand_ids[]=11445&search_id=25547044964&order=newest_first",
+        "webhook_url": "https://discord.com/api/webhooks/1441391005667426435/4wCoH0aLtB7l8b03McbSiCsmt2G1-i05LyhnoIxRyAaVkobbIu0bhrg2W_iDVb4Xf1Db",
+        "max_price": 5.0,
+        "must_include": [],
+        "must_not_include": [],
+        "size_filter": [],   # sizes already encoded in URL
+        "avg_resale_price": 0.0,
+        "fees_estimate": 0.0,
+        "min_profit": 0.0,
+        "enabled": True,
+    },
 ]
 
 CHECK_DELAY_SECONDS = 5  # time between full scan cycles
@@ -55,37 +55,52 @@ def ensure_seen_structure():
 
 def send_discord_embed(webhook_url, title, price_text, url, image_url=None,
                        size_text=None, est_profit=None):
-    """Send a rich embed with optional image, size and profit."""
-    fields = []
-
-    if price_text:
-        fields.append({"name": "Price", "value": price_text, "inline": True})
-
-    if size_text:
-        fields.append({"name": "Size", "value": size_text, "inline": True})
-
-    if est_profit is not None:
-        fields.append(
-            {
-                "name": "Est. Profit",
-                "value": f"£{est_profit:.2f}",
-                "inline": True,
-            }
-        )
-
+    """
+    Send a rich embed with optional image, size and profit.
+    This version avoids empty fields so Discord accepts the embed.
+    """
     embed = {
         "title": title,
         "url": url,
-        "fields": fields,
+        "fields": []
     }
 
+    # Only add fields if they have actual content
+    if price_text and price_text.strip():
+        embed["fields"].append({
+            "name": "Price",
+            "value": price_text,
+            "inline": True
+        })
+
+    if size_text and size_text.strip():
+        embed["fields"].append({
+            "name": "Size",
+            "value": size_text,
+            "inline": True
+        })
+
+    if est_profit is not None:
+        embed["fields"].append({
+            "name": "Est. Profit",
+            "value": f"£{est_profit:.2f}",
+            "inline": True
+        })
+
+    # Add image only if we actually got one
     if image_url:
         embed["image"] = {"url": image_url}
+
+    # If we somehow have no fields, give a basic description
+    if not embed["fields"]:
+        embed["description"] = "New Vinted item found"
 
     data = {"embeds": [embed]}
 
     try:
-        requests.post(webhook_url, json=data, timeout=10)
+        r = requests.post(webhook_url, json=data, timeout=10)
+        if r.status_code >= 300:
+            print(f"Discord rejected embed ({r.status_code}): {r.text}")
     except Exception as e:
         print(f"Error sending to Discord: {e}")
 
@@ -149,9 +164,8 @@ def fetch_items(search_url: str):
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # These selectors may need tweaking if Vinted changes layout
+    # Updated selectors for current Vinted layout
     cards = soup.select("div.lc-card, div.ItemBox-root, div.item-box, div.feed__item")
-
 
     items = []
     for card in cards:
@@ -334,40 +348,41 @@ TEMPLATE = """
         <th>Fees</th>
         <th>Min Profit</th>
       </tr>
-      {% for item in items %}
+      {% for alert in alerts %}
+      {% set i = loop.index0 %}
       <tr>
         <td class="enabled">
-          <input type="checkbox" name="enabled_{{i}}" value="1" {% if alert.get('enabled', True) %}checked{% endif %}>
+          <input type="checkbox" name="enabled_{{ i }}" value="1" {% if alert.get('enabled', True) %}checked{% endif %}>
         </td>
         <td>
-          <input type="text" name="name_{{i}}" value="{{alert['name']}}">
+          <input type="text" name="name_{{ i }}" value="{{ alert['name'] }}">
         </td>
         <td>
-          <input type="text" name="search_url_{{i}}" value="{{alert['search_url']}}">
+          <input type="text" name="search_url_{{ i }}" value="{{ alert['search_url'] }}">
         </td>
         <td>
-          <input type="text" name="webhook_url_{{i}}" value="{{alert['webhook_url']}}">
+          <input type="text" name="webhook_url_{{ i }}" value="{{ alert['webhook_url'] }}">
         </td>
         <td>
-          <input type="number" step="0.01" name="max_price_{{i}}" value="{{alert.get('max_price') or ''}}">
+          <input type="number" step="0.01" name="max_price_{{ i }}" value="{{ alert.get('max_price') or '' }}">
         </td>
         <td>
-          <input type="text" name="must_include_{{i}}" value="{{ ','.join(alert.get('must_include') or []) }}">
+          <input type="text" name="must_include_{{ i }}" value="{{ ','.join(alert.get('must_include') or []) }}">
         </td>
         <td>
-          <input type="text" name="must_not_include_{{i}}" value="{{ ','.join(alert.get('must_not_include') or []) }}">
+          <input type="text" name="must_not_include_{{ i }}" value="{{ ','.join(alert.get('must_not_include') or []) }}">
         </td>
         <td>
-          <input type="text" name="size_filter_{{i}}" value="{{ ','.join(alert.get('size_filter') or []) }}">
+          <input type="text" name="size_filter_{{ i }}" value="{{ ','.join(alert.get('size_filter') or []) }}">
         </td>
         <td>
-          <input type="number" step="0.01" name="avg_resale_price_{{i}}" value="{{alert.get('avg_resale_price') or ''}}">
+          <input type="number" step="0.01" name="avg_resale_price_{{ i }}" value="{{ alert.get('avg_resale_price') or '' }}">
         </td>
         <td>
-          <input type="number" step="0.01" name="fees_estimate_{{i}}" value="{{alert.get('fees_estimate') or ''}}">
+          <input type="number" step="0.01" name="fees_estimate_{{ i }}" value="{{ alert.get('fees_estimate') or '' }}">
         </td>
         <td>
-          <input type="number" step="0.01" name="min_profit_{{i}}" value="{{alert.get('min_profit') or ''}}">
+          <input type="number" step="0.01" name="min_profit_{{ i }}" value="{{ alert.get('min_profit') or '' }}">
         </td>
       </tr>
       {% endfor %}
@@ -387,22 +402,22 @@ def index():
     if request.method == "POST":
         for i, alert in enumerate(ALERTS):
             alert["enabled"] = bool(request.form.get(f"enabled_{i}"))
-            alert["name"] = request.form.get(f"name_{{i}}", alert["name"])
+            alert["name"] = request.form.get(f"name_{i}", alert["name"])
             alert["search_url"] = request.form.get(
-                f"search_url_{{i}}", alert["search_url"]
+                f"search_url_{i}", alert["search_url"]
             )
             alert["webhook_url"] = request.form.get(
-                f"webhook_url_{{i}}", alert["webhook_url"]
+                f"webhook_url_{i}", alert["webhook_url"]
             )
 
             def parse_float(field_name):
                 val = request.form.get(field_name, "").strip()
                 return float(val) if val else None
 
-            alert["max_price"] = parse_float(f"max_price_{{i}}")
-            alert["avg_resale_price"] = parse_float(f"avg_resale_price_{{i}}")
-            alert["fees_estimate"] = parse_float(f"fees_estimate_{{i}}") or 0.0
-            alert["min_profit"] = parse_float(f"min_profit_{{i}}")
+            alert["max_price"] = parse_float(f"max_price_{i}")
+            alert["avg_resale_price"] = parse_float(f"avg_resale_price_{i}")
+            alert["fees_estimate"] = parse_float(f"fees_estimate_{i}") or 0.0
+            alert["min_profit"] = parse_float(f"min_profit_{i}")
 
             def parse_list(field_name):
                 txt = request.form.get(field_name, "").strip()
@@ -410,9 +425,9 @@ def index():
                     return []
                 return [x.strip() for x in txt.split(",") if x.strip()]
 
-            alert["must_include"] = parse_list(f"must_include_{{i}}")
-            alert["must_not_include"] = parse_list(f"must_not_include_{{i}}")
-            alert["size_filter"] = parse_list(f"size_filter_{{i}}")
+            alert["must_include"] = parse_list(f"must_include_{i}")
+            alert["must_not_include"] = parse_list(f"must_not_include_{i}")
+            alert["size_filter"] = parse_list(f"size_filter_{i}")
 
         ensure_seen_structure()
         return redirect("/")
@@ -421,7 +436,9 @@ def index():
 
 
 def start_dashboard():
-    app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
+    # Use PORT env var on Render; default 5000 locally
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 
 if __name__ == "__main__":
@@ -431,8 +448,3 @@ if __name__ == "__main__":
 
     # Start the main Vinted scanner loop
     main_loop()
-
-
-
-
-
