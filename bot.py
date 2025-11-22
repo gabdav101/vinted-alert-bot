@@ -5,6 +5,7 @@ import os
 from bs4 import BeautifulSoup
 from flask import Flask, request, redirect, render_template_string
 
+
 # ==================== CONFIG ==================== #
 # Add as many alerts as you like in this list.
 
@@ -448,3 +449,4 @@ if __name__ == "__main__":
 
     # Start the main Vinted scanner loop
     main_loop()
+
